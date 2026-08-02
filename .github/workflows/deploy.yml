@@ -47,6 +47,12 @@ jobs:
     name: Build
     needs: quality
     runs-on: ubuntu-latest
+    # `pages: write` lets the configure step switch Pages on by itself, so a
+    # fresh clone of this repository deploys without anyone visiting Settings.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +67,11 @@ jobs:
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on and sets its source to Actions if it is not already,
+          # rather than failing with "the repository does not have Pages
+          # enabled". Harmless once it is on.
+          enablement: true
 
       - name: Build
         # The repository name is the Pages sub-path, so the base is derived from

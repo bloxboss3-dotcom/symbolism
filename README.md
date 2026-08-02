@@ -205,13 +205,16 @@ tab. It:
 
 1. installs from the lockfile with `npm ci`,
 2. runs formatting, lint, types, and tests,
-3. reads the Pages base path from `actions/configure-pages` and builds with it,
+3. turns Pages on if it is off (`enablement: true`), then reads the base path from
+   `actions/configure-pages` and builds with it,
 4. asserts the built output is correctly scoped to that sub-path and that no service-worker
    placeholder was left unsubstituted,
 5. uploads the Pages artifact and deploys it with the official Pages actions.
 
-**One-time repository setting:** Settings → Pages → Build and deployment → Source → **GitHub
-Actions**.
+Step 3 means a fresh clone deploys without anyone opening Settings, provided Actions is allowed to
+write to the repository (Settings → Actions → General → Workflow permissions). If the configure step
+still reports that Pages is not enabled, set it by hand once: Settings → Pages → Build and deployment
+→ Source → **GitHub Actions**.
 
 ## Installing on a phone
 
