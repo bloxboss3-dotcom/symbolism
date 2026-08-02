@@ -211,10 +211,11 @@ tab. It:
    placeholder was left unsubstituted,
 5. uploads the Pages artifact and deploys it with the official Pages actions.
 
-Step 3 means a fresh clone deploys without anyone opening Settings, provided Actions is allowed to
-write to the repository (Settings → Actions → General → Workflow permissions). If the configure step
-still reports that Pages is not enabled, set it by hand once: Settings → Pages → Build and deployment
-→ Source → **GitHub Actions**.
+Step 3 is best-effort. Some accounts do not permit the Actions token to create a Pages site, and
+there the configure step fails with `Create Pages site failed. Error: Resource not accessible by
+integration`. The fix is a one-time setting: Settings → Pages → Build and deployment → Source →
+**GitHub Actions**, then re-run the workflow. Once the site exists, the configure step finds it and
+never tries to create one again.
 
 ## Installing on a phone
 
