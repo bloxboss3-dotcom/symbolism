@@ -41,7 +41,10 @@ export function SettingsPage() {
 
   return (
     <main className="page" id="main">
-      <header className="row" style={{ marginBottom: 'var(--s-5)', gap: 'var(--s-2)', alignItems: 'flex-start' }}>
+      <header
+        className="row"
+        style={{ marginBottom: 'var(--s-5)', gap: 'var(--s-2)', alignItems: 'flex-start' }}
+      >
         <Link to="/" className="iconbtn" aria-label="Back to home">
           <IconBack />
         </Link>
