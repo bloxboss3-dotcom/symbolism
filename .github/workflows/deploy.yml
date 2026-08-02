@@ -1,0 +1,117 @@
+name: Build and deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Lets the site be redeployed by hand from the Actions tab, and lets the very
+  # first deploy be triggered without waiting for another push.
+  workflow_dispatch:
+
+# Never leave a half-finished deploy in flight, but never cancel one either —
+# an interrupted Pages deployment can leave the site in a broken state.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install from the lockfile
+        run: npm ci
+
+      - name: Formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+  build:
+    name: Build
+    needs: quality
+    runs-on: ubuntu-latest
+    # `pages: write` lets the configure step switch Pages on by itself, so a
+    # fresh clone of this repository deploys without anyone visiting Settings.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install from the lockfile
+        run: npm ci
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on and sets its source to Actions if it is not already,
+          # rather than failing with "the repository does not have Pages
+          # enabled". Harmless once it is on.
+          enablement: true
+
+      - name: Build
+        # The repository name is the Pages sub-path, so the base is derived from
+        # it rather than hard-coded — renaming the repo cannot break the build.
+        run: npm run build
+        env:
+          VITE_BASE: ${{ steps.pages.outputs.base_path }}/
+
+      - name: Guard against a broken sub-path build
+        run: |
+          set -euo pipefail
+          base="${{ steps.pages.outputs.base_path }}/"
+          test -f dist/index.html
+          test -f dist/manifest.webmanifest
+          test -f dist/sw.js
+          test -f dist/icons/icon-192.png
+          test -f dist/icons/icon-512.png
+          test -f dist/apple-touch-icon.png
+          grep -q "src=\"${base}assets/" dist/index.html
+          grep -q "const BASE = '${base}'" dist/sw.js
+          # A missed substitution would leave the service worker throwing on install.
+          ! grep -q '__PRECACHE_MANIFEST__\|__CACHE_VERSION__\|__BASE_PATH__' dist/sw.js
+          echo "Build output is correctly scoped to ${base}"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Wisdom — Offline</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        padding: 2rem calc(1.5rem + env(safe-area-inset-left)) 2rem
+          calc(1.5rem + env(safe-area-inset-right));
+        background: #14100c;
+        color: #ece3d2;
+        font-family: ui-serif, Georgia, 'Times New Roman', serif;
+        text-align: center;
+      }
+      main {
+        max-width: 34ch;
+      }
+      h1 {
+        font-size: 1.5rem;
+        letter-spacing: 0.02em;
+        margin: 0 0 0.75rem;
+        color: #d9b263;
+      }
+      p {
+        line-height: 1.65;
+        color: #b8ad9a;
+        margin: 0 0 1.25rem;
+        font-size: 1rem;
+      }
+      a {
+        display: inline-block;
+        padding: 0.85rem 1.5rem;
+        border-radius: 999px;
+        border: 1px solid #4a3f2f;
+        color: #ece3d2;
+        text-decoration: none;
+        font-size: 0.95rem;
+      }
+      .rule {
+        width: 3rem;
+        height: 1px;
+        background: #4a3f2f;
+        margin: 0 auto 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="rule"></div>
+      <h1>You are offline</h1>
+      <p>
+        Wisdom stores its lessons on your device, so most of the app still works once it has been
+        opened at least once. This particular page has not been saved yet.
+      </p>
+      <a href="./index.html">Return to Wisdom</a>
+    </main>
+  </body>
+</html>
