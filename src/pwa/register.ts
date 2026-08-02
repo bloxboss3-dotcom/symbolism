@@ -16,7 +16,18 @@ export function registerServiceWorker(onUpdateReady: UpdateHandler): void {
   if (!('serviceWorker' in navigator)) return
   if (import.meta.env.DEV) return
 
-  window.addEventListener('load', () => {
+  // Registration is deferred until the page has settled, so it never competes
+  // with the first render for bandwidth. But this is called from a React
+  // effect, which runs after paint — `load` has usually fired already, and
+  // listening for an event that is in the past would skip registration
+  // entirely, taking every offline guarantee with it.
+  if (document.readyState === 'complete') {
+    begin()
+  } else {
+    window.addEventListener('load', begin, { once: true })
+  }
+
+  function begin() {
     navigator.serviceWorker
       .register(SW_URL, { scope: import.meta.env.BASE_URL })
       .then((registration) => {
@@ -51,11 +62,16 @@ export function registerServiceWorker(onUpdateReady: UpdateHandler): void {
         // Offline support is a bonus; failing to register must never be fatal.
       })
 
+    // The worker calls `clients.claim()`, so a first install also fires
+    // `controllerchange` — with no update having happened. Reloading on that
+    // would refresh the page out from under a first-time visitor, possibly
+    // mid-answer. Only a controller replacing an earlier one is an update.
+    const wasControlled = Boolean(navigator.serviceWorker.controller)
     let reloading = false
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloading) return
+      if (!wasControlled || reloading) return
       reloading = true
       window.location.reload()
     })
-  })
+  }
 }
