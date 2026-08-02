@@ -1,0 +1,53 @@
+{
+  "name": "Wisdom — A School of Practical Wisdom",
+  "short_name": "Wisdom",
+  "description": "Train to see beneath the surface, interpret responsibly, judge well, understand people, and speak counsel that actually helps. Rooted in Scripture, in conversation with philosophy, psychology, literature, and history.",
+  "id": "/symbolism/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#14100c",
+  "theme_color": "#14100c",
+  "categories": ["education", "books", "lifestyle"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Continue lesson",
+      "short_name": "Continue",
+      "url": "./index.html#/learn"
+    },
+    {
+      "name": "Case Lab",
+      "short_name": "Cases",
+      "url": "./index.html#/cases"
+    },
+    {
+      "name": "Wisdom Journal",
+      "short_name": "Journal",
+      "url": "./index.html#/journal"
+    }
+  ]
+}
