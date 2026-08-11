@@ -33,7 +33,9 @@ export function SessionPage() {
   const { routineId } = useParams()
   const routine = routineId ? routineById.get(routineId) : undefined
   if (!routine) return <Navigate to="/" replace />
-  return <Player routine={routine} />
+  // Keyed so navigating between routines can never leak one session's state
+  // into another's player.
+  return <Player key={routine.id} routine={routine} />
 }
 
 function Player({ routine }: { routine: Routine }) {

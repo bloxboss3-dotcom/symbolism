@@ -113,7 +113,8 @@
 .breath {
   display: grid;
   place-items: center;
-  margin: var(--s-5) auto;
+  /* Extra room below for the absolutely-positioned text cue. */
+  margin: var(--s-5) auto var(--s-7);
   width: min(58vw, 15rem);
   aspect-ratio: 1;
   position: relative;

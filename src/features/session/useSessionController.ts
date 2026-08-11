@@ -93,16 +93,35 @@ export function useSessionController(routine: Routine) {
   const running = session?.status === 'running'
   const timed = current?.plannedMs != null
 
+  // A rolling snapshot every few seconds while a timer runs, so a reload
+  // mid-silence resumes near where it left off instead of at the segment's
+  // start. Transitions persist immediately; this only fills the gaps.
+  const sessionRef = useRef(session)
+  sessionRef.current = session
+
   useEffect(() => {
     if (!running || !timed) return
-    const interval = window.setInterval(() => setTickCount((c) => c + 1), 500)
+    let ticks = 0
+    const interval = window.setInterval(() => {
+      setTickCount((c) => c + 1)
+      ticks += 1
+      const live = sessionRef.current
+      if (ticks % 10 === 0 && live && live.status === 'running') {
+        const now = Date.now()
+        persist({
+          ...live,
+          segmentAccumulatedMs: segmentElapsedMs(live, now),
+          segmentStartedAt: now,
+        })
+      }
+    }, 500)
     const onVisible = () => setTickCount((c) => c + 1)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [running, timed])
+  }, [running, timed, persist])
 
   // Timed segments advance themselves, with a chime when enabled.
   useEffect(() => {
