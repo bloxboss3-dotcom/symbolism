@@ -2,9 +2,9 @@
  * Generates the app's PNG icons from code — no binary blobs in the repo that
  * nobody can regenerate, and no image dependency to install in CI.
  *
- * The motif is an illuminated-manuscript compass star: a four-point star for
- * the cardinal directions crossed with a shorter diagonal star, ringed and
- * centred on a candle-lit cream disc. Rendered with 4x supersampling.
+ * The motif is first light over still water: a gold sun rising above a calm
+ * horizon, its reflection reaching down like a path, ringed in gold on a
+ * midnight-blue field. Rendered with 4x supersampling.
  *
  *   node scripts/generate-icons.mjs
  */
@@ -71,10 +71,11 @@ function encodePng(width, height, rgba) {
 
 /* -------------------------------------------------------------- drawing ---- */
 
-const INK_CORE = [0x26, 0x1d, 0x14]
-const INK_EDGE = [0x0d, 0x0a, 0x07]
-const GOLD_TOP = [0xf0, 0xd4, 0x93]
-const GOLD_BOTTOM = [0x9a, 0x71, 0x27]
+const NIGHT_TOP = [0x18, 0x1f, 0x33]
+const NIGHT_BOTTOM = [0x0a, 0x0d, 0x16]
+const WATER_TOP = [0x11, 0x17, 0x26]
+const GOLD = [0xd2, 0xa5, 0x59]
+const GOLD_BRIGHT = [0xf0, 0xd4, 0x93]
 const CREAM = [0xf7, 0xed, 0xd8]
 
 const mix = (a, b, t) => [
@@ -89,63 +90,53 @@ const smoothstep = (t) => {
 }
 
 /**
- * Four-pointed star as a concave superellipse: |x|^k + |y|^k <= r^k. An
- * exponent below 1 pulls the edges inward, so the four tips come to a real
- * point instead of the rounded lobes a cosine-radius star produces.
- */
-function inStar(x, y, radius, sharpness) {
-  return (
-    Math.pow(Math.abs(x), sharpness) + Math.pow(Math.abs(y), sharpness) <=
-    Math.pow(radius, sharpness)
-  )
-}
-
-const SQRT1_2 = Math.SQRT1_2
-
-/**
  * Colour of the icon at normalized coordinates, where the square spans
  * [-1, 1] on both axes. `scale` is the outer radius the motif may occupy.
  */
 function shade(nx, ny, scale) {
-  const r = Math.hypot(nx, ny)
+  // Night sky above, deeper water below.
+  const horizon = scale * 0.16
+  let color =
+    ny < horizon
+      ? mix(NIGHT_TOP, NIGHT_BOTTOM, smoothstep((ny / scale + 1) / 2.6))
+      : mix(WATER_TOP, NIGHT_BOTTOM, smoothstep((ny - horizon) / (scale * 1.1)))
 
-  // Parchment-dark ground with a warm centre, as if lit by a single candle.
-  let color = mix(INK_CORE, INK_EDGE, smoothstep(r / 1.25))
+  const sunY = -scale * 0.18
+  const sunR = scale * 0.3
+  const d = Math.hypot(nx, ny - sunY)
 
-  const gold = mix(GOLD_TOP, GOLD_BOTTOM, smoothstep((ny / scale + 1) / 2))
+  // A soft halo breathing into the sky.
+  const halo = 1 - smoothstep((d - sunR) / (scale * 0.55))
+  if (ny < horizon) color = mix(color, GOLD, 0.28 * halo * halo)
 
-  // Faint constellation of fixed points, drawn beneath the star.
-  for (const [sx, sy, sr] of [
-    [-0.72, -0.66, 0.022],
-    [0.68, -0.75, 0.017],
-    [0.79, 0.6, 0.02],
-    [-0.63, 0.74, 0.015],
-  ]) {
-    if (Math.hypot(nx - sx * scale * 1.16, ny - sy * scale * 1.16) < sr) {
-      color = mix(color, gold, 0.5)
+  // The rising sun, brighter at its crown.
+  if (ny < horizon && d < sunR) {
+    color = mix(GOLD_BRIGHT, GOLD, smoothstep((ny - (sunY - sunR)) / (2 * sunR)))
+    if (d < sunR * 0.45) color = mix(color, CREAM, 0.5)
+  }
+
+  // The horizon, lit where the sun touches it.
+  if (Math.abs(ny - horizon) < scale * 0.014) {
+    const lit = 1 - smoothstep(Math.abs(nx) / (scale * 0.85))
+    color = mix(color, GOLD_BRIGHT, 0.25 + 0.6 * lit)
+  }
+
+  // The reflection: a shimmering path of light on still water.
+  if (ny > horizon) {
+    const depth = (ny - horizon) / scale
+    const spread = sunR * (0.45 + depth * 0.5)
+    if (Math.abs(nx) < spread) {
+      const fall = 1 - smoothstep(depth / 1.05)
+      const band = 0.5 + 0.5 * Math.sin(depth * 46)
+      const across = 1 - Math.abs(nx) / spread
+      color = mix(color, GOLD, 0.5 * fall * (0.5 + 0.5 * band) * across)
     }
   }
 
-  // Two keeper rings, as on an astrolabe.
+  // A single keeper ring.
+  const r = Math.hypot(nx, ny)
   const ringWidth = Math.max(scale * 0.012, 0.008)
-  if (Math.abs(r - scale) < ringWidth) color = mix(color, gold, 0.6)
-  if (Math.abs(r - scale * 0.93) < ringWidth * 0.7) color = mix(color, gold, 0.28)
-
-  // Cardinal star, crossed by a shorter diagonal one: a compass rose.
-  const dx = (nx + ny) * SQRT1_2
-  const dy = (nx - ny) * SQRT1_2
-  const onCardinal = inStar(nx, ny, scale * 0.86, 0.62)
-  const onDiagonal = inStar(dx, dy, scale * 0.48, 0.72)
-  if (onCardinal || onDiagonal) {
-    color = gold
-    // The diagonal points sit slightly behind the cardinal ones.
-    if (onDiagonal && !onCardinal) color = mix(color, INK_EDGE, 0.22)
-  }
-
-  // Inner ring and the candle-lit centre.
-  if (Math.abs(r - scale * 0.26) < scale * 0.016) color = mix(color, INK_EDGE, 0.6)
-  if (r < scale * 0.13) color = CREAM
-  else if (r < scale * 0.155) color = mix(CREAM, GOLD_BOTTOM, 0.55)
+  if (Math.abs(r - scale) < ringWidth) color = mix(color, GOLD, 0.55)
 
   return color
 }

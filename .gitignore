@@ -11,3 +11,5 @@ coverage
 !.env.example
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+playwright-report
+test-results

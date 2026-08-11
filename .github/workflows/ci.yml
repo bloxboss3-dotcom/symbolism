@@ -1,0 +1,55 @@
+name: CI
+
+# Runs once per PR update (pushes to main are covered by the deploy
+# workflow's quality job; a bare `push` trigger here would double-run every
+# PR push).
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Lint, types, tests, content, build, e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install from the lockfile
+        run: npm ci
+
+      - name: Formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Unit and component tests
+        run: npm test
+
+      - name: Content integrity
+        run: npm run validate:content
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Critical journey (Playwright)
+        run: npm run e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results
+          retention-days: 7

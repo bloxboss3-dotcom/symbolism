@@ -1,26 +1,24 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { IconCase, IconHome, IconJournal, IconLearn, IconLibrary } from './Icons'
+import { BookIcon, CalendarIcon, FeatherIcon, GearIcon, SunriseIcon } from './Icons'
 
 const TABS = [
-  { to: '/', label: 'Home', Icon: IconHome, end: true },
-  { to: '/learn', label: 'Learn', Icon: IconLearn, end: false },
-  { to: '/cases', label: 'Cases', Icon: IconCase, end: false },
-  { to: '/library', label: 'Library', Icon: IconLibrary, end: false },
-  { to: '/journal', label: 'Journal', Icon: IconJournal, end: false },
-]
-
-/** Hidden while a lesson is being played, so the player owns the whole screen. */
-const IMMERSIVE = [/^\/learn\/[^/]+/, /^\/cases\/[^/]+/, /^\/trials\/[^/]+/, /^\/welcome/]
+  { to: '/', label: 'Today', icon: SunriseIcon, end: true },
+  { to: '/study', label: 'Scripture', icon: BookIcon, end: false },
+  { to: '/notes', label: 'Notes', icon: FeatherIcon, end: false },
+  { to: '/history', label: 'History', icon: CalendarIcon, end: false },
+  { to: '/settings', label: 'Settings', icon: GearIcon, end: false },
+] as const
 
 export function BottomNav() {
   const { pathname } = useLocation()
-  if (IMMERSIVE.some((pattern) => pattern.test(pathname))) return null
+  // The player and onboarding are rooms of their own — no chrome.
+  if (pathname.startsWith('/session') || pathname.startsWith('/welcome')) return null
 
   return (
-    <nav className="nav" aria-label="Primary">
-      {TABS.map(({ to, label, Icon, end }) => (
-        <NavLink key={to} to={to} end={end} className="nav__item">
-          <Icon className="nav__icon" />
+    <nav className="bottom-nav" aria-label="Main">
+      {TABS.map(({ to, label, icon: Icon, end }) => (
+        <NavLink key={to} to={to} end={end}>
+          <Icon />
           <span>{label}</span>
         </NavLink>
       ))}

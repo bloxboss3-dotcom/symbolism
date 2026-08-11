@@ -1,0 +1,40 @@
+name: Source review
+description: Review or challenge a cited source, verification record, or license claim.
+title: '[sources] '
+labels: ['content', 'sources']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every quotation and commentary entry carries citations and verification
+        metadata (see the in-app Sources screen and CONTENT_SOURCES.md). Use
+        this template to challenge a source's reliability, a verification
+        record, or a public-domain/licensing claim.
+  - type: input
+    id: item
+    attributes:
+      label: Which item?
+      description: Quote id, commentary id, or passage id from the data files.
+      placeholder: e.g. quote augustine-restless-heart
+    validations:
+      required: true
+  - type: dropdown
+    id: concern
+    attributes:
+      label: Nature of the concern
+      options:
+        - Wording does not match the cited edition
+        - Source is unreliable for this claim
+        - Licensing / public-domain status is wrong
+        - Verification metadata is incomplete
+        - Attribution is missing or misleading
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What you checked, where, and what you found.
+    validations:
+      required: true

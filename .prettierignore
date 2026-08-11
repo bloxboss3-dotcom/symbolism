@@ -5,3 +5,5 @@ package-lock.json
 public/icons
 *.png
 *.svg
+playwright-report
+test-results

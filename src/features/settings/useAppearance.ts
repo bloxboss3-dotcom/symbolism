@@ -1,32 +1,33 @@
 import { useEffect } from 'react'
-import type { Settings } from '../../types/progress'
+import type { UserPreferences } from '../../schemas'
+
+const DARK_BG = '#10141f'
+const LIGHT_BG = '#f6efdf'
 
 /**
- * Pushes appearance settings onto the document element, where the CSS can see
- * them. Theme and motion are attributes rather than classes so the stylesheet
- * can express "system unless overridden" without JavaScript re-running.
+ * Pushes appearance preferences onto the document element where the CSS can
+ * see them. Theme and motion are attributes so the stylesheet expresses
+ * "system unless overridden" without JavaScript re-running.
  */
-export function useAppearance(settings: Settings): void {
+export function useAppearance(prefs: UserPreferences): void {
   useEffect(() => {
     const root = document.documentElement
-    root.dataset.theme = settings.theme
-    root.dataset.motion = settings.motion === 'reduced' ? 'reduced' : 'system'
-    root.style.setProperty('--scale', String(settings.textScale))
-  }, [settings.theme, settings.motion, settings.textScale])
+    root.dataset.theme = prefs.theme
+    root.dataset.motion = prefs.motion === 'reduced' ? 'reduced' : 'system'
+    root.style.setProperty('--scale', String(prefs.textScale))
+  }, [prefs.theme, prefs.motion, prefs.textScale])
 
   useEffect(() => {
-    // Keep the iOS status bar in step with the resolved theme.
+    // Keep the mobile status bar in step with the resolved theme.
     const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]:not([media])')
-    const dark = '#14100c'
-    const light = '#f6efe1'
     const resolved =
-      settings.theme === 'dark'
-        ? dark
-        : settings.theme === 'light'
-          ? light
+      prefs.theme === 'dark'
+        ? DARK_BG
+        : prefs.theme === 'light'
+          ? LIGHT_BG
           : window.matchMedia?.('(prefers-color-scheme: light)').matches
-            ? light
-            : dark
+            ? LIGHT_BG
+            : DARK_BG
 
     if (meta) {
       meta.content = resolved
@@ -36,5 +37,5 @@ export function useAppearance(settings: Settings): void {
       created.content = resolved
       document.head.appendChild(created)
     }
-  }, [settings.theme])
+  }, [prefs.theme])
 }
