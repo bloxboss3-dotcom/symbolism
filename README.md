@@ -65,6 +65,11 @@ Chromium: `PLAYWRIGHT_CHROMIUM_PATH=/path/to/chrome npm run e2e`.
 - **Audio is synthesized** (`src/lib/audio.ts`): rain/night/tone ambience and a
   bell chime generated with the Web Audio API — no recordings, no licenses,
   gesture-gated per autoplay policy, per-channel volume, cross-fades.
+- **Voice guidance is local** (`src/lib/narration.ts`): the device's own speech
+  engine (Web Speech API) reads prayers, Scripture, and prompts slowly with
+  real pauses — silence stays silent. Private, offline, no keys. Voice,
+  pace, and volume are configurable in Settings; toggleable on the session
+  start screen.
 - **Persistence** is one versioned localStorage document with forward-only
   migrations and per-field corruption recovery (`src/lib/storage.ts`).
 - **Service worker** (`src/pwa/sw-template.js`) is ~100 readable lines: precache
@@ -132,6 +137,10 @@ branch push and PR.
 - **iOS specifics:** background tabs throttle timers (recovered on return by
   timestamp math), and localStorage can be evicted for sites unused for long
   periods — an installed PWA is more durable.
+- **Voice guidance** quality depends on the device's installed voices; on
+  iOS/macOS, downloading an enhanced system voice (Settings → Accessibility →
+  Spoken Content → Voices) noticeably improves it. Where speech synthesis is
+  unavailable, sessions simply run silent.
 - Works fully with audio off and with reduced motion (OS-level or in-app).
 
 ## Screenshot checklist

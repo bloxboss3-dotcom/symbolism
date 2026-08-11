@@ -14,6 +14,9 @@
   synthesized ambience and chime with per-channel volume, screen wake lock.
 - In-app + Notification API reminders with explicit-intent permission flow,
   snooze/skip/pause, and honest platform-limitation messaging.
+- Voice guidance via the device's speech engine (Web Speech API): prayers,
+  Scripture, and prompts read slowly with configurable voice, pace, and
+  volume; silence stays silent. Local, private, offline.
 - Gentle history calendar (no streaks or guilt states), settings (length,
   overrides, audio, breathing, appearance, text size, translation/content-pack
   placeholders, privacy), delete-my-data.
@@ -47,9 +50,10 @@
 - **Accounts and encrypted sync** — opt-in, end-to-end encrypted sync of
   notes/history via the storage seam (`src/lib/storage.ts`) and a Supabase or
   comparable backend; local-first remains the default.
-- **Narrated sessions** — professionally recorded, properly licensed audio via
-  the narration channel already present in the audio engine; downloadable
-  audio packs for offline use.
+- **Premium narration packs** — professionally recorded (or studio-grade
+  generated, rights-documented) audio replacing the device speech engine for
+  users who want it; downloadable packs for offline use, layered onto the
+  existing narration settings.
 - **Tradition content packs** — reviewed content packs (Anglican, Reformed,
   Catholic, Orthodox, Wesleyan, …) selectable in Settings; the
   `contentPack` preference and schema fields already anticipate this.
