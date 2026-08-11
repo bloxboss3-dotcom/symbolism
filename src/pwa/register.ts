@@ -2,10 +2,10 @@
  * Service worker registration and the update handshake.
  *
  * A waiting worker means a newer build is installed and ready. Rather than
- * swapping it in mid-lesson, the app surfaces a banner and lets the learner
- * choose the moment — updating reloads the page, and losing a half-written
- * answer to a silent refresh would be the worst possible bug in an app like
- * this one.
+ * swapping it in mid-lesson, the app surfaces a banner and lets the user
+ * choose the moment — updating reloads the page, and silently refreshing
+ * someone out of a half-finished prayer would be the worst possible bug in
+ * an app like this one.
  */
 
 export type UpdateHandler = (applyUpdate: () => void) => void

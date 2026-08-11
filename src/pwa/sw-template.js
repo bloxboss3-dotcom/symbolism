@@ -1,5 +1,5 @@
 /**
- * Wisdom service worker.
+ * Still Before Him service worker.
  *
  * Build-time placeholders in this file are substituted by the plugin in
  * `vite.config.ts`: the cache version is a hash of the precache list, so a new
@@ -9,7 +9,7 @@
  * substitution is a plain string replace and would rewrite them here too.)
  */
 
-const CACHE = 'wisdom-__CACHE_VERSION__'
+const CACHE = 'sbh-__CACHE_VERSION__'
 const BASE = '__BASE_PATH__'
 const SHELL = BASE + 'index.html'
 const OFFLINE = BASE + 'offline.html'
@@ -26,7 +26,7 @@ self.addEventListener('install', (event) => {
           try {
             await cache.add(new Request(url, { cache: 'reload' }))
           } catch {
-            console.warn('[wisdom-sw] could not precache', url)
+            console.warn('[sbh-sw] could not precache', url)
           }
         }),
       )

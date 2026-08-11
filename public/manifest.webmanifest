@@ -1,16 +1,16 @@
 {
-  "name": "Wisdom — A School of Practical Wisdom",
-  "short_name": "Wisdom",
-  "description": "Train to see beneath the surface, interpret responsibly, judge well, understand people, and speak counsel that actually helps. Rooted in Scripture, in conversation with philosophy, psychology, literature, and history.",
+  "name": "Still Before Him — Morning & Evening Prayer",
+  "short_name": "Still",
+  "description": "A Christian morning and evening prayer companion: behold God's glory, pray honestly, read Scripture slowly, sit in silence, and stretch gently.",
   "id": "/symbolism/",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
-  "background_color": "#14100c",
-  "theme_color": "#14100c",
-  "categories": ["education", "books", "lifestyle"],
+  "background_color": "#10141f",
+  "theme_color": "#10141f",
+  "categories": ["lifestyle", "books"],
   "lang": "en",
   "dir": "ltr",
   "icons": [
@@ -35,19 +35,19 @@
   ],
   "shortcuts": [
     {
-      "name": "Continue lesson",
-      "short_name": "Continue",
-      "url": "./index.html#/learn"
+      "name": "Morning prayer",
+      "short_name": "Morning",
+      "url": "./index.html#/"
     },
     {
-      "name": "Case Lab",
-      "short_name": "Cases",
-      "url": "./index.html#/cases"
+      "name": "Evening prayer",
+      "short_name": "Evening",
+      "url": "./index.html#/"
     },
     {
-      "name": "Wisdom Journal",
-      "short_name": "Journal",
-      "url": "./index.html#/journal"
+      "name": "Continue reading",
+      "short_name": "Read",
+      "url": "./index.html#/study"
     }
   ]
 }

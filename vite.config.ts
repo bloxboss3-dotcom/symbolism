@@ -22,7 +22,7 @@ const swTemplatePath = fileURLToPath(new URL('./src/pwa/sw-template.js', import.
  */
 function serviceWorkerPlugin(): Plugin {
   return {
-    name: 'wisdom-service-worker',
+    name: 'sbh-service-worker',
     apply: 'build',
     enforce: 'post',
     generateBundle(_options, bundle) {
@@ -68,7 +68,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) return 'vendor'
-          if (id.includes('/src/data/')) return 'curriculum'
+          if (id.includes('/src/data/')) return 'content'
           return undefined
         },
       },

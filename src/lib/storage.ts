@@ -1,57 +1,106 @@
 /**
  * Local persistence.
  *
- * Everything the learner writes stays in `localStorage` on their own device.
- * Two rules shape this file:
+ * Everything the user does — preferences, reminders, history, notes,
+ * bookmarks, and a mid-session snapshot — lives in one versioned
+ * `localStorage` document on their own device. Nothing is ever sent anywhere.
  *
- *  1. A newer build must never silently destroy saved work. Every state carries
- *     a `version`, and `migrate()` walks it forward one step at a time.
- *  2. Reading must never throw. A corrupt or half-written record degrades to a
- *     fresh state rather than a blank screen.
+ * Two rules shape this file (proven in this repository's previous life):
+ *
+ *  1. A newer build must never silently destroy saved data. The state carries
+ *     a `version`; `migrate()` walks it forward one step at a time, and the
+ *     raw pre-migration document is kept under a backup key.
+ *  2. Reading must never throw. A corrupt or half-written record degrades to
+ *     a fresh state rather than a blank screen.
  */
-import { ABILITY_IDS, type AbilityId } from '../types/content'
 import {
-  STORAGE_VERSION,
-  type AbilityScore,
-  type WisdomBackup,
-  type WisdomState,
-} from '../types/progress'
-import { isoDay } from './date'
+  BookmarkSchema,
+  PrivateNoteSchema,
+  ReadingPositionSchema,
+  ReminderScheduleSchema,
+  RoutineCompletionSchema,
+  SessionProgressSchema,
+  UserPreferencesSchema,
+  type Bookmark,
+  type PrivateNote,
+  type ReadingPosition,
+  type ReminderSchedule,
+  type RoutineCompletion,
+  type SessionProgress,
+  type UserPreferences,
+} from '../schemas'
+import type { z } from 'zod'
 
-export const STORAGE_KEY = 'wisdom:state'
+export const STORAGE_VERSION = 1
+export const STORAGE_KEY = 'stillbeforehim:state'
 /** Written before every migration so a failed upgrade is recoverable. */
-export const BACKUP_KEY = 'wisdom:state:pre-migration'
-export const APP_VERSION = '1.0.0'
+export const BACKUP_KEY = 'stillbeforehim:state:pre-migration'
 
-function emptyAbilities(): Record<AbilityId, AbilityScore> {
-  return ABILITY_IDS.reduce(
-    (acc, id) => {
-      acc[id] = { points: 0, touches: 0 }
-      return acc
-    },
-    {} as Record<AbilityId, AbilityScore>,
-  )
+export type AppState = {
+  version: number
+  createdAt: string
+  updatedAt: string
+  preferences: UserPreferences
+  reminders: ReminderSchedule
+  history: RoutineCompletion[]
+  bookmarks: Bookmark[]
+  notes: PrivateNote[]
+  reading: ReadingPosition | null
+  session: SessionProgress | null
 }
 
-export function createInitialState(now = new Date()): WisdomState {
+export function defaultPreferences(): UserPreferences {
+  return {
+    theme: 'system',
+    motion: 'system',
+    textScale: 1,
+    routineMinutes: 15,
+    silenceSecondsOverride: null,
+    prayerSecondsOverride: null,
+    audio: {
+      ambience: 'off',
+      ambienceVolume: 0.5,
+      chimeEnabled: true,
+      chimeVolume: 0.6,
+      narrationVolume: 0.8,
+    },
+    breathing: {
+      style: 'guided',
+      inSeconds: 4,
+      outSeconds: 6,
+      restSeconds: 2,
+      textCues: true,
+    },
+    translationId: 'web',
+    contentPack: 'ecumenical',
+    onboarded: false,
+  }
+}
+
+export function defaultReminders(): ReminderSchedule {
+  return {
+    morning: { enabled: false, time: '07:00', days: [0, 1, 2, 3, 4, 5, 6] },
+    evening: { enabled: false, time: '21:30', days: [0, 1, 2, 3, 4, 5, 6] },
+    sound: true,
+    paused: false,
+    snoozedUntil: null,
+    lastFired: {},
+  }
+}
+
+export function createInitialState(now = new Date()): AppState {
   const iso = now.toISOString()
   return {
     version: STORAGE_VERSION,
     createdAt: iso,
     updatedAt: iso,
-    profile: null,
-    lessons: {},
-    cases: {},
-    trials: {},
-    abilities: emptyAbilities(),
-    concepts: {},
-    journal: [],
-    connections: [],
-    practices: [],
-    selfAssessments: {},
-    insight: 0,
-    streak: { current: 0, longest: 0, activeDays: [] },
-    settings: { theme: 'system', motion: 'system', textScale: 1, voiceEnabled: false },
+    preferences: defaultPreferences(),
+    reminders: defaultReminders(),
+    history: [],
+    bookmarks: [],
+    notes: [],
+    reading: null,
+    session: null,
   }
 }
 
@@ -60,102 +109,58 @@ export function createInitialState(now = new Date()): WisdomState {
 type AnyState = Record<string, unknown>
 
 /**
- * Ordered upgrades. Each entry takes the state at version `n` and returns it at
- * version `n + 1`. Steps are additive on purpose: an unknown field from a newer
- * build is preserved rather than stripped.
+ * Ordered upgrades: entry `n` takes a version-n state to version n+1. Empty
+ * today (version 1); the machinery exists so the first schema change is a
+ * five-line diff instead of a data-loss incident.
  */
-const MIGRATIONS: Record<number, (state: AnyState) => AnyState> = {
-  // v1 → v2: case files and transfer trials became first-class progress records.
-  1: (state) => ({ ...state, cases: state.cases ?? {}, trials: state.trials ?? {}, version: 2 }),
-  // v2 → v3: lessons began tracking which steps were explicitly completed,
-  // rather than inferring completion from the furthest index reached.
-  2: (state) => {
-    const upgradeBucket = (bucket: unknown) => {
-      if (!bucket || typeof bucket !== 'object') return {}
-      return Object.fromEntries(
-        Object.entries(bucket as Record<string, AnyState>).map(([id, lesson]) => [
-          id,
-          {
-            ...lesson,
-            completedStepIds: Array.isArray(lesson.completedStepIds) ? lesson.completedStepIds : [],
-          },
-        ]),
-      )
-    }
-    return {
-      ...state,
-      lessons: upgradeBucket(state.lessons),
-      cases: upgradeBucket(state.cases),
-      trials: upgradeBucket(state.trials),
-      version: 3,
-    }
-  },
-}
+const MIGRATIONS: Record<number, (state: AnyState) => AnyState> = {}
 
-export function migrate(input: AnyState): WisdomState {
+export function migrate(input: AnyState): AppState {
   let state = { ...input }
   let version = typeof state.version === 'number' ? state.version : 1
 
   while (version < STORAGE_VERSION) {
     const step = MIGRATIONS[version]
-    if (!step) {
-      // No path forward: keep the learner's writing, reset the machinery.
-      return { ...createInitialState(), journal: normaliseArray(state.journal) } as WisdomState
-    }
+    if (!step) return reconcile(state)
     state = step(state)
     const next = typeof state.version === 'number' ? state.version : version + 1
     if (next <= version) break
     version = next
   }
-
   return reconcile(state)
 }
 
-function normaliseArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : []
-}
-
 /**
- * Fills in anything a migration or a hand-edited import left out, so the rest
- * of the app can treat the state as total.
+ * Field-by-field validation with per-field fallback: one corrupt list must
+ * not cost the user everything else.
  */
-export function reconcile(input: AnyState): WisdomState {
+export function reconcile(input: AnyState): AppState {
   const base = createInitialState()
-  const state = { ...base, ...input } as WisdomState
 
-  state.version = STORAGE_VERSION
-  state.lessons = (state.lessons ?? {}) as WisdomState['lessons']
-  state.cases = (state.cases ?? {}) as WisdomState['cases']
-  state.trials = (state.trials ?? {}) as WisdomState['trials']
-  state.concepts = (state.concepts ?? {}) as WisdomState['concepts']
-  state.selfAssessments = (state.selfAssessments ?? {}) as WisdomState['selfAssessments']
-  state.journal = normaliseArray(state.journal)
-  state.connections = normaliseArray(state.connections)
-  state.practices = normaliseArray(state.practices)
-  state.insight = Number.isFinite(state.insight) ? state.insight : 0
-
-  const abilities = emptyAbilities()
-  for (const id of ABILITY_IDS) {
-    const found = state.abilities?.[id]
-    abilities[id] = {
-      points: Number.isFinite(found?.points) ? found.points : 0,
-      touches: Number.isFinite(found?.touches) ? found.touches : 0,
-    }
+  const field = <T>(schema: z.ZodType<T>, value: unknown, fallback: T): T => {
+    const parsed = schema.safeParse(value)
+    return parsed.success ? parsed.data : fallback
   }
-  state.abilities = abilities
-
-  state.streak = {
-    current: state.streak?.current ?? 0,
-    longest: state.streak?.longest ?? 0,
-    activeDays: normaliseArray<string>(state.streak?.activeDays),
-    ...(state.streak?.lastActiveDay ? { lastActiveDay: state.streak.lastActiveDay } : {}),
+  const list = <T>(schema: z.ZodType<T>, value: unknown): T[] => {
+    if (!Array.isArray(value)) return []
+    return value.flatMap((item) => {
+      const parsed = schema.safeParse(item)
+      return parsed.success ? [parsed.data] : []
+    })
   }
 
-  state.settings = { ...base.settings, ...(state.settings ?? {}) }
-  const scale = Number(state.settings.textScale)
-  state.settings.textScale = Number.isFinite(scale) ? Math.min(1.3, Math.max(0.9, scale)) : 1
-
-  return state
+  return {
+    version: STORAGE_VERSION,
+    createdAt: typeof input.createdAt === 'string' ? input.createdAt : base.createdAt,
+    updatedAt: base.updatedAt,
+    preferences: field(UserPreferencesSchema, input.preferences, base.preferences),
+    reminders: field(ReminderScheduleSchema, input.reminders, base.reminders),
+    history: list(RoutineCompletionSchema, input.history),
+    bookmarks: list(BookmarkSchema, input.bookmarks),
+    notes: list(PrivateNoteSchema, input.notes),
+    reading: field(ReadingPositionSchema.nullable(), input.reading ?? null, null),
+    session: field(SessionProgressSchema.nullable(), input.session ?? null, null),
+  }
 }
 
 /* -------------------------------------------------------------- read/write - */
@@ -163,7 +168,7 @@ export function reconcile(input: AnyState): WisdomState {
 function storage(): Storage | null {
   try {
     if (typeof localStorage === 'undefined') return null
-    const probe = '__wisdom_probe__'
+    const probe = '__sbh_probe__'
     localStorage.setItem(probe, '1')
     localStorage.removeItem(probe)
     return localStorage
@@ -173,7 +178,7 @@ function storage(): Storage | null {
   }
 }
 
-export function loadState(): WisdomState {
+export function loadState(): AppState {
   const store = storage()
   if (!store) return createInitialState()
 
@@ -199,9 +204,12 @@ export function loadState(): WisdomState {
 
 let writeFailed = false
 
-export function saveState(state: WisdomState): boolean {
+export function saveState(state: AppState): boolean {
   const store = storage()
-  if (!store) return false
+  if (!store) {
+    writeFailed = true
+    return false
+  }
   try {
     store.setItem(STORAGE_KEY, JSON.stringify({ ...state, updatedAt: new Date().toISOString() }))
     writeFailed = false
@@ -216,71 +224,10 @@ export function lastWriteFailed(): boolean {
   return writeFailed
 }
 
+/** "Delete my local data" — removes every key this app owns. */
 export function clearState(): void {
   const store = storage()
   if (!store) return
   store.removeItem(STORAGE_KEY)
   store.removeItem(BACKUP_KEY)
-}
-
-/* ---------------------------------------------------------- export/import -- */
-
-export function createBackup(state: WisdomState): WisdomBackup {
-  return {
-    app: 'wisdom',
-    kind: 'wisdom-backup',
-    exportedAt: new Date().toISOString(),
-    appVersion: APP_VERSION,
-    state,
-  }
-}
-
-export function backupFilename(now = new Date()): string {
-  return `wisdom-backup-${isoDay(now)}.json`
-}
-
-export type ImportResult =
-  { ok: true; state: WisdomState; migratedFrom?: number } | { ok: false; error: string }
-
-/**
- * Accepts either a full backup envelope or a bare state object, so a file
- * hand-edited down to its `state` still restores.
- */
-export function parseBackup(text: string): ImportResult {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    return { ok: false, error: 'That file is not valid JSON.' }
-  }
-
-  if (typeof parsed !== 'object' || parsed === null) {
-    return { ok: false, error: 'That file does not contain a Wisdom backup.' }
-  }
-
-  const envelope = parsed as Partial<WisdomBackup> & AnyState
-  const candidate = (
-    envelope.kind === 'wisdom-backup' || envelope.app === 'wisdom' ? envelope.state : envelope
-  ) as AnyState | undefined
-
-  if (!candidate || typeof candidate !== 'object') {
-    return { ok: false, error: 'That file does not contain a Wisdom backup.' }
-  }
-  if (!('lessons' in candidate) && !('journal' in candidate) && !('profile' in candidate)) {
-    return { ok: false, error: 'That backup is missing its progress data.' }
-  }
-
-  const version = typeof candidate.version === 'number' ? candidate.version : 1
-  if (version > STORAGE_VERSION) {
-    return {
-      ok: false,
-      error:
-        'That backup was made by a newer version of Wisdom. Update the app, then import again.',
-    }
-  }
-
-  const state = version < STORAGE_VERSION ? migrate(candidate) : reconcile(candidate)
-  return version < STORAGE_VERSION
-    ? { ok: true, state, migratedFrom: version }
-    : { ok: true, state }
 }

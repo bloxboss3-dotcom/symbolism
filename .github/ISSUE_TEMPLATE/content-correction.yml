@@ -1,0 +1,48 @@
+name: Content correction
+description: Report an error in Scripture text, a prayer, commentary, or a quotation.
+title: '[content] '
+labels: ['content']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you — content accuracy is a first-class requirement for this app.
+        Corrections to Scripture wording, misattributed or misquoted material,
+        and unfair representations of a tradition's view are all in scope.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of content?
+      options:
+        - Scripture text
+        - Prayer wording or theology
+        - Commentary (facts, context, interpretation)
+        - Quotation (wording, attribution, licensing)
+        - Stretch / safety wording
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Where is it?
+      description: Passage reference, routine name, or screen — enough to find it.
+      placeholder: e.g. Psalm 121 commentary, "Historical context" section
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong?
+      description: Quote the current text and explain the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: >-
+        A primary source, reliable edition, or scholarly reference supporting
+        the correction — the same standard the content itself is held to.
+    validations:
+      required: true

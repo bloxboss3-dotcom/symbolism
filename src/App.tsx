@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react'
-import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { BellIcon } from './components/Icons'
 import { BottomNav } from './components/Shell'
-import { WisdomProvider } from './features/progress/WisdomProvider'
-import { useWisdom } from './features/progress/useWisdom'
+import { useReminderEngine } from './features/reminders/useReminderEngine'
 import { useAppearance } from './features/settings/useAppearance'
+import { AppStateProvider } from './features/state/AppStateProvider'
+import { useAppState } from './features/state/useAppState'
 import { registerServiceWorker } from './pwa/register'
-import { CaseLabPage } from './pages/CaseLabPage'
+import { suggestRoutine } from './features/session/suggest'
+import { HistoryPage } from './pages/HistoryPage'
 import { HomePage } from './pages/HomePage'
-import { JournalPage } from './pages/JournalPage'
-import { LearnPage } from './pages/LearnPage'
-import { LibraryPage } from './pages/LibraryPage'
+import { NotesPage } from './pages/NotesPage'
 import { OnboardingPage } from './pages/OnboardingPage'
-import { PlayerPage } from './pages/PlayerPage'
-import { ProgressPage } from './pages/ProgressPage'
+import { ReaderPage } from './pages/ReaderPage'
+import { SessionPage } from './pages/SessionPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { SourcesPage } from './pages/SourcesPage'
+import { StudyPage } from './pages/StudyPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -23,10 +26,10 @@ function ScrollToTop() {
   return null
 }
 
-/** Everything except onboarding requires a profile; this sends new arrivals there. */
-function RequireProfile({ children }: { children: React.ReactNode }) {
-  const { state } = useWisdom()
-  if (!state.profile) return <Navigate to="/welcome" replace />
+/** Everything except onboarding waits until the user has arrived once. */
+function RequireOnboarded({ children }: { children: React.ReactNode }) {
+  const { state } = useAppState()
+  if (!state.preferences.onboarded) return <Navigate to="/welcome" replace />
   return <>{children}</>
 }
 
@@ -49,18 +52,18 @@ function UpdateBanner() {
         right: 'max(var(--s-3), env(safe-area-inset-right))',
         bottom: 'calc(var(--nav-total) + var(--s-3))',
         zIndex: 40,
-        background: 'var(--c-surface)',
+        background: 'var(--c-surface-raise)',
         boxShadow: 'var(--shadow-lift)',
         alignItems: 'center',
       }}
     >
-      <span style={{ flex: 1 }}>A newer version of Wisdom is ready. Your work is saved.</span>
+      <span style={{ flex: 1 }}>A newer version is ready. Everything you saved is safe.</span>
       <button type="button" className="btn btn--sm btn--primary" onClick={() => apply()}>
         Update
       </button>
       <button
         type="button"
-        className="btn btn--sm btn--plain"
+        className="btn btn--sm btn--quiet"
         onClick={() => setApply(null)}
         aria-label="Dismiss update notice"
       >
@@ -70,9 +73,64 @@ function UpdateBanner() {
   )
 }
 
+/** The in-app reminder surface: begin, snooze, or skip — without guilt. */
+function ReminderCard() {
+  const { dueSlot, snooze, skipToday, markDone, snoozeMinutes } = useReminderEngine()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+
+  if (!dueSlot || pathname.startsWith('/session') || pathname.startsWith('/welcome')) return null
+  const routine = suggestRoutine(dueSlot)
+
+  return (
+    <div
+      className="banner banner--attention"
+      role="status"
+      style={{
+        position: 'fixed',
+        left: 'max(var(--s-3), env(safe-area-inset-left))',
+        right: 'max(var(--s-3), env(safe-area-inset-right))',
+        bottom: 'calc(var(--nav-total) + var(--s-3))',
+        zIndex: 39,
+        background: 'var(--c-surface-raise)',
+        boxShadow: 'var(--shadow-lift)',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+      }}
+    >
+      <span aria-hidden="true" style={{ color: 'var(--c-gold)' }}>
+        <BellIcon size={18} />
+      </span>
+      <span style={{ flex: 1, minWidth: '10rem' }}>
+        {dueSlot === 'morning'
+          ? 'A quiet morning space is ready.'
+          : 'Time to be still before the night.'}
+      </span>
+      <span className="row" style={{ gap: 'var(--s-1)' }}>
+        <button
+          type="button"
+          className="btn btn--sm btn--primary"
+          onClick={() => {
+            markDone()
+            navigate(`/session/${routine.id}`)
+          }}
+        >
+          Begin
+        </button>
+        <button type="button" className="btn btn--sm btn--quiet" onClick={snooze}>
+          Snooze {snoozeMinutes}m
+        </button>
+        <button type="button" className="btn btn--sm btn--quiet" onClick={skipToday}>
+          Not today
+        </button>
+      </span>
+    </div>
+  )
+}
+
 function Chrome() {
-  const { state, persistenceBlocked } = useWisdom()
-  useAppearance(state.settings)
+  const { state, persistenceBlocked } = useAppState()
+  useAppearance(state.preferences)
 
   return (
     <div className="app">
@@ -82,8 +140,8 @@ function Chrome() {
       <ScrollToTop />
       {persistenceBlocked ? (
         <div className="banner" role="alert" style={{ margin: 'var(--s-3)' }}>
-          This device is not letting Wisdom save to local storage, so progress will be lost when you
-          close the tab. Private browsing is the usual cause.
+          This device is not letting the app save to local storage, so notes and history will be
+          lost when you close the tab. Private browsing is the usual cause.
         </div>
       ) : null}
       <Routes>
@@ -91,72 +149,57 @@ function Chrome() {
         <Route
           path="/"
           element={
-            <RequireProfile>
+            <RequireOnboarded>
               <HomePage />
-            </RequireProfile>
+            </RequireOnboarded>
           }
         />
         <Route
-          path="/learn"
+          path="/session/:routineId"
           element={
-            <RequireProfile>
-              <LearnPage />
-            </RequireProfile>
+            <RequireOnboarded>
+              <SessionPage />
+            </RequireOnboarded>
           }
         />
         <Route
-          path="/learn/:unitId"
+          path="/study"
           element={
-            <RequireProfile>
-              <PlayerPage track="lessons" />
-            </RequireProfile>
+            <RequireOnboarded>
+              <StudyPage />
+            </RequireOnboarded>
           }
         />
         <Route
-          path="/cases"
+          path="/read/:passageId"
           element={
-            <RequireProfile>
-              <CaseLabPage />
-            </RequireProfile>
+            <RequireOnboarded>
+              <ReaderPage />
+            </RequireOnboarded>
           }
         />
         <Route
-          path="/cases/:unitId"
+          path="/notes"
           element={
-            <RequireProfile>
-              <PlayerPage track="cases" />
-            </RequireProfile>
+            <RequireOnboarded>
+              <NotesPage />
+            </RequireOnboarded>
           }
         />
         <Route
-          path="/trials/:unitId"
+          path="/history"
           element={
-            <RequireProfile>
-              <PlayerPage track="trials" />
-            </RequireProfile>
-          }
-        />
-        <Route
-          path="/journal"
-          element={
-            <RequireProfile>
-              <JournalPage />
-            </RequireProfile>
-          }
-        />
-        <Route path="/library" element={<LibraryPage />} />
-        <Route
-          path="/progress"
-          element={
-            <RequireProfile>
-              <ProgressPage />
-            </RequireProfile>
+            <RequireOnboarded>
+              <HistoryPage />
+            </RequireOnboarded>
           }
         />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/sources" element={<SourcesPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomNav />
+      <ReminderCard />
       <UpdateBanner />
     </div>
   )
@@ -164,10 +207,10 @@ function Chrome() {
 
 export default function App() {
   return (
-    <WisdomProvider>
+    <AppStateProvider>
       <HashRouter>
         <Chrome />
       </HashRouter>
-    </WisdomProvider>
+    </AppStateProvider>
   )
 }
