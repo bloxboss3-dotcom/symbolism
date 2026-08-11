@@ -300,10 +300,12 @@ input[type='checkbox'] {
   cursor: pointer;
 }
 .switch-row .switch-title {
+  display: block;
   font-weight: 600;
   font-size: 0.95rem;
 }
 .switch-row .switch-sub {
+  display: block;
   font-size: 0.82rem;
   color: var(--c-ink-faint);
   margin-top: 2px;
