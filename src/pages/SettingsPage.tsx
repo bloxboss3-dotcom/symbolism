@@ -3,16 +3,19 @@
  * breathing, appearance, Scripture provider, and privacy — including the
  * delete-everything action.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Segmented, SwitchRow, ConfirmDialog } from '../components/ui'
 import { audioEngine } from '../lib/audio'
 import { notifyCapability, requestNotifyPermission } from '../lib/notifications'
 import { clearState } from '../lib/storage'
-import { DAY_LABELS } from '../lib/time'
+import { DAY_LABELS, localDay } from '../lib/time'
+import { slotTimePassedToday } from '../features/reminders/useReminderEngine'
 import { useAppState } from '../features/state/useAppState'
 import { ROUTINE_MINUTE_CHOICES } from '../schemas'
 import { webTranslation } from '../data/registry'
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
 const OVERRIDE_CHOICES = [
   { value: 'auto', label: 'Scale with session length' },
@@ -32,12 +35,24 @@ export function SettingsPage() {
   const [permission, setPermission] = useState(notifyCapability())
   const [previewing, setPreviewing] = useState(false)
 
+  // Leaving Settings mid-preview must not leave ambience playing app-wide.
+  useEffect(() => {
+    return () => audioEngine.stop()
+  }, [])
+
   const enableSlot = async (slot: 'morning' | 'evening', enabled: boolean) => {
     dispatch({ type: 'reminder-slot', slot, patch: { enabled } })
-    // Permission is requested only here — after the user explicitly asked
-    // for a reminder — and never on first load.
-    if (enabled && permission === 'default') {
-      setPermission(await requestNotifyPermission())
+    if (enabled) {
+      // Enabling a reminder whose time already passed today should start
+      // tomorrow, not ring the moment the switch is flipped.
+      if (slotTimePassedToday(reminders[slot].time)) {
+        dispatch({ type: 'reminder-fired', key: `${localDay()}:${slot}`, value: 'skipped' })
+      }
+      // Permission is requested only here — after the user explicitly asked
+      // for a reminder — and never on first load.
+      if (permission === 'default') {
+        setPermission(await requestNotifyPermission())
+      }
     }
   }
 
@@ -135,13 +150,13 @@ export function SettingsPage() {
                       <input
                         type="time"
                         value={cfg.time}
-                        onChange={(event) =>
-                          dispatch({
-                            type: 'reminder-slot',
-                            slot,
-                            patch: { time: event.target.value },
-                          })
-                        }
+                        onChange={(event) => {
+                          const time = event.target.value
+                          // A cleared or mid-edit time input emits '' — never
+                          // store what the schema would reject on next load.
+                          if (!TIME_PATTERN.test(time)) return
+                          dispatch({ type: 'reminder-slot', slot, patch: { time } })
+                        }}
                       />
                     </label>
                     <div

@@ -21,6 +21,7 @@ import {
   type AppState,
 } from '../../lib/storage'
 import { newId } from '../../lib/id'
+import { localDay } from '../../lib/time'
 
 export type AppAction =
   | { type: 'prefs'; patch: Partial<UserPreferences> }
@@ -72,14 +73,21 @@ function reducer(state: AppState, action: AppAction): AppState {
           [action.slot]: { ...state.reminders[action.slot], ...action.patch },
         },
       }
-    case 'reminder-fired':
+    case 'reminder-fired': {
+      // Keys are "YYYY-MM-DD:slot"; entries older than a week are dead
+      // weight and are pruned on every write so the map cannot grow forever.
+      const cutoff = localDay(new Date(Date.now() - 7 * 86_400_000))
+      const kept = Object.fromEntries(
+        Object.entries(state.reminders.lastFired).filter(([key]) => key.slice(0, 10) >= cutoff),
+      )
       return {
         ...state,
         reminders: {
           ...state.reminders,
-          lastFired: { ...state.reminders.lastFired, [action.key]: action.value },
+          lastFired: { ...kept, [action.key]: action.value },
         },
       }
+    }
     case 'complete':
       return {
         ...state,

@@ -26,22 +26,28 @@ export async function requestNotifyPermission(): Promise<NotifyCapability> {
 export function showReminder(title: string, body: string, silent: boolean): void {
   if (notifyCapability() !== 'granted') return
   const options: NotificationOptions = { body, silent, tag: 'sbh-reminder' }
+
+  const direct = () => {
+    try {
+      new Notification(title, options)
+    } catch {
+      // Some platforms allow only the SW path; the in-app card remains.
+    }
+  }
+
   // Prefer the service-worker path: it survives better on installed PWAs.
+  // `getRegistration()` (not `.ready`, which never settles when no worker is
+  // registered — dev mode, or a failed registration) so the direct fallback
+  // is actually reachable.
   if ('serviceWorker' in navigator) {
-    void navigator.serviceWorker.ready
-      .then((reg) => reg.showNotification(title, options))
-      .catch(() => {
-        try {
-          new Notification(title, options)
-        } catch {
-          // Some platforms allow only the SW path; the in-app card remains.
-        }
+    void navigator.serviceWorker
+      .getRegistration()
+      .then((reg) => {
+        if (reg?.active) return reg.showNotification(title, options)
+        direct()
       })
+      .catch(direct)
     return
   }
-  try {
-    new Notification(title, options)
-  } catch {
-    // The in-app reminder card is the fallback surface.
-  }
+  direct()
 }

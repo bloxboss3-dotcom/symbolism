@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom'
 import { BRAND } from '../brand'
 import { Segmented } from '../components/ui'
 import { requestNotifyPermission } from '../lib/notifications'
+import { localDay } from '../lib/time'
+import { slotTimePassedToday } from '../features/reminders/useReminderEngine'
 import { useAppState } from '../features/state/useAppState'
 import { ROUTINE_MINUTE_CHOICES } from '../schemas'
 
@@ -97,8 +99,18 @@ export function OnboardingPage() {
                 type="button"
                 className="btn btn--primary btn--block"
                 onClick={async () => {
-                  dispatch({ type: 'reminder-slot', slot: 'morning', patch: { enabled: true } })
-                  dispatch({ type: 'reminder-slot', slot: 'evening', patch: { enabled: true } })
+                  for (const slot of ['morning', 'evening'] as const) {
+                    dispatch({ type: 'reminder-slot', slot, patch: { enabled: true } })
+                    // A slot whose time already passed today begins tomorrow —
+                    // enabling reminders at 3pm must not ring "Morning prayer".
+                    if (slotTimePassedToday(state.reminders[slot].time)) {
+                      dispatch({
+                        type: 'reminder-fired',
+                        key: `${localDay()}:${slot}`,
+                        value: 'skipped',
+                      })
+                    }
+                  }
                   await requestNotifyPermission()
                   finish()
                 }}

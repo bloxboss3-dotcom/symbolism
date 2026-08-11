@@ -1,9 +1,9 @@
 /**
  * In-page reminder scheduling, timestamp-based and honest about limits: with
  * no push server, reminders can only surface while the app is open (or
- * installed and running). The system notification fires once per slot per
- * day; the in-app card stays until the user acts. Completing the routine
- * counts as done — no nagging, no guilt states.
+ * installed and running). Each slot fires its system notification once per
+ * day, independently; the in-app card stays until the user acts. Completing
+ * the routine counts as done — no nagging, no guilt states.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { showReminder } from '../../lib/notifications'
@@ -13,6 +13,16 @@ import { useAppState } from '../state/useAppState'
 export type ReminderSlot = 'morning' | 'evening'
 
 const SNOOZE_MINUTES = 10
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** Whether an "HH:MM" wall-clock time is already behind us today. */
+export function slotTimePassedToday(time: string, now = new Date()): boolean {
+  if (!TIME_PATTERN.test(time)) return false
+  const [h, m] = time.split(':').map(Number)
+  const fireAt = new Date(now)
+  fireAt.setHours(h, m, 0, 0)
+  return now >= fireAt
+}
 
 export function useReminderEngine() {
   const { state, dispatch } = useAppState()
@@ -38,40 +48,46 @@ export function useReminderEngine() {
   )
 
   // Recomputed every render; the 30-second tick above keeps renders coming.
-  const dueSlot: ReminderSlot | null = (() => {
+  const dueSlots: ReminderSlot[] = (() => {
     const r = state.reminders
-    if (r.paused) return null
-    if (r.snoozedUntil && Date.now() < r.snoozedUntil) return null
+    if (r.paused) return []
+    if (r.snoozedUntil && Date.now() < r.snoozedUntil) return []
+    const due: ReminderSlot[] = []
     for (const slot of ['morning', 'evening'] as const) {
       const cfg = r[slot]
       if (!cfg.enabled) continue
       if (!cfg.days.includes(now.getDay())) continue
-      const [h, m] = cfg.time.split(':').map(Number)
-      const fireAt = new Date(now)
-      fireAt.setHours(h, m, 0, 0)
-      if (now < fireAt) continue
+      // A malformed time (possible only if storage was edited by hand)
+      // must never make a slot permanently "due".
+      if (!slotTimePassedToday(cfg.time, now)) continue
       const status = r.lastFired[`${today}:${slot}`]
       if (status === 'done' || status === 'skipped') continue
       if (completedToday(slot)) continue
-      return slot
+      due.push(slot)
     }
-    return null
+    return due
   })()
 
-  // One system notification per slot per day, when the slot first comes due.
+  // The card surfaces one slot; when both linger, the later one (evening)
+  // is the one that matches the hour.
+  const dueSlot: ReminderSlot | null = dueSlots.length > 0 ? dueSlots[dueSlots.length - 1] : null
+
+  // One system notification per slot per day — each slot independently, so
+  // an unresolved morning card cannot swallow the evening notification.
   useEffect(() => {
-    if (!dueSlot) return
-    const key = `${today}:${dueSlot}`
-    if (state.reminders.lastFired[key]) return
-    dispatch({ type: 'reminder-fired', key, value: 'notified' })
-    showReminder(
-      dueSlot === 'morning' ? 'Morning prayer' : 'Evening prayer',
-      dueSlot === 'morning'
-        ? 'A quiet space is ready when you are.'
-        : 'Before the day ends, be still for a little while.',
-      !state.reminders.sound,
-    )
-  }, [dueSlot, today, state.reminders.lastFired, state.reminders.sound, dispatch])
+    for (const slot of dueSlots) {
+      const key = `${today}:${slot}`
+      if (state.reminders.lastFired[key]) continue
+      dispatch({ type: 'reminder-fired', key, value: 'notified' })
+      showReminder(
+        slot === 'morning' ? 'Morning prayer' : 'Evening prayer',
+        slot === 'morning'
+          ? 'A quiet space is ready when you are.'
+          : 'Before the day ends, be still for a little while.',
+        !state.reminders.sound,
+      )
+    }
+  }, [dueSlots, today, state.reminders.lastFired, state.reminders.sound, dispatch])
 
   const snooze = useCallback(() => {
     dispatch({
