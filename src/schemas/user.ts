@@ -28,8 +28,19 @@ export const UserPreferencesSchema = z.object({
     ambienceVolume: z.number().min(0).max(1),
     chimeEnabled: z.boolean(),
     chimeVolume: z.number().min(0).max(1),
-    /** Reserved for future licensed narration; no MVP implementation. */
     narrationVolume: z.number().min(0).max(1),
+    /**
+     * Voice guidance via the device's built-in speech engine (Web Speech
+     * API): local, private, and free. Recorded/AI narration packs are a
+     * roadmap item and would layer on the same settings.
+     */
+    narration: z.object({
+      enabled: z.boolean(),
+      /** A specific device voice, or null for the platform default. */
+      voiceURI: z.string().nullable(),
+      /** Speaking rate; 1 is the platform's normal speed. */
+      rate: z.number().min(0.6).max(1.2),
+    }),
   }),
   breathing: z.object({
     /** `guided` shows the moving circle; `still` shows a static figure. */

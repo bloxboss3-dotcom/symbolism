@@ -3,12 +3,14 @@
  * resume), move through the routine, and end in quiet. The palette follows
  * the routine's hour via `data-ambient` regardless of app theme.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { BackIcon, CloseIcon, PauseIcon, PlayIcon } from '../components/Icons'
-import { Segmented } from '../components/ui'
+import { Segmented, SwitchRow } from '../components/ui'
 import { routineById } from '../data/registry'
 import { audioEngine } from '../lib/audio'
+import { narrationEngine, narrationSupported } from '../lib/narration'
+import { buildNarrationScript } from '../features/session/narrationScript'
 import { formatClock } from '../lib/time'
 import {
   ArrivalView,
@@ -70,6 +72,46 @@ function Player({ routine }: { routine: Routine }) {
     audioEngine.setVolumes(prefs.audio.ambienceVolume, prefs.audio.chimeVolume)
   }, [prefs.audio.ambienceVolume, prefs.audio.chimeVolume])
 
+  /* -------------------------------------------------------- voice guide ---- */
+
+  const narration = prefs.audio.narration
+  const voiceOn = narration.enabled && narrationSupported()
+  const paused0 = session?.status === 'paused'
+  const complete = session?.status === 'complete'
+  const spokenSegmentRef = useRef<string | null>(null)
+
+  // Speak each segment once, as it begins running. Silence stays silent by
+  // design (the script for it is empty).
+  useEffect(() => {
+    if (!voiceOn || complete) {
+      narrationEngine.stop()
+      spokenSegmentRef.current = null
+      return
+    }
+    if (!running || !current) return
+    if (spokenSegmentRef.current === current.segment.id) return
+    spokenSegmentRef.current = current.segment.id
+    narrationEngine.stop()
+    const script = buildNarrationScript(current.segment)
+    if (script.length > 0) {
+      narrationEngine.speak(script, {
+        voiceURI: narration.voiceURI,
+        rate: narration.rate,
+        volume: prefs.audio.narrationVolume,
+      })
+    }
+  }, [voiceOn, complete, running, current, narration, prefs.audio.narrationVolume])
+
+  // The voice pauses and resumes with the session.
+  useEffect(() => {
+    if (!voiceOn) return
+    if (paused0) narrationEngine.pause()
+    else narrationEngine.resume()
+  }, [paused0, voiceOn])
+
+  // Leaving the player always quiets the voice.
+  useEffect(() => () => narrationEngine.stop(), [])
+
   const totalPlannedMinutes = useMemo(() => {
     const timedMs = planned.reduce((sum, p) => sum + (p.plannedMs ?? 0), 0)
     return Math.round(timedMs / 60000)
@@ -84,6 +126,11 @@ function Player({ routine }: { routine: Routine }) {
         minutes={prefs.routineMinutes}
         timedMinutes={totalPlannedMinutes}
         onMinutes={(m) => dispatch({ type: 'prefs', patch: { routineMinutes: m } })}
+        voiceSupported={narrationSupported()}
+        voiceEnabled={narration.enabled}
+        onVoice={(enabled) =>
+          dispatch({ type: 'audio', patch: { narration: { ...narration, enabled } } })
+        }
         beginLabel="Begin"
         onBegin={async () => {
           await audioEngine.unlock()
@@ -270,6 +317,9 @@ function StartScreen({
   routine,
   minutes,
   timedMinutes,
+  voiceSupported,
+  voiceEnabled,
+  onVoice,
   beginLabel,
   onMinutes,
   onBegin,
@@ -277,6 +327,9 @@ function StartScreen({
   routine: Routine
   minutes: (typeof ROUTINE_MINUTE_CHOICES)[number]
   timedMinutes: number
+  voiceSupported: boolean
+  voiceEnabled: boolean
+  onVoice: (enabled: boolean) => void
   beginLabel: string
   onMinutes: (m: (typeof ROUTINE_MINUTE_CHOICES)[number]) => void
   onBegin: () => void
@@ -317,6 +370,16 @@ function StartScreen({
               : ''}
             .
           </p>
+          {voiceSupported ? (
+            <div style={{ marginTop: 'var(--s-4)', textAlign: 'left' }}>
+              <SwitchRow
+                title="Voice guidance"
+                sub="A calm voice reads the prayers and Scripture. Silence stays silent."
+                checked={voiceEnabled}
+                onChange={onVoice}
+              />
+            </div>
+          ) : null}
         </div>
         <div style={{ marginTop: 'var(--s-6)' }}>
           <button type="button" className="btn btn--gold" data-testid="begin" onClick={onBegin}>

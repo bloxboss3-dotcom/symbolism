@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  BACKUP_KEY,
   STORAGE_KEY,
   clearState,
   createInitialState,
@@ -81,5 +82,28 @@ describe('storage', () => {
     saveState(createInitialState())
     clearState()
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  })
+
+  it('migrates a v1 document to v2 without losing choices, and keeps a backup', () => {
+    const v1 = JSON.parse(JSON.stringify(createInitialState())) as {
+      version: number
+      preferences: { routineMinutes: number; audio: Record<string, unknown> }
+    }
+    v1.version = 1
+    v1.preferences.routineMinutes = 30
+    delete v1.preferences.audio.narration
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(v1))
+
+    const loaded = loadState()
+    expect(loaded.version).toBe(2)
+    // The user's earlier choices survive the schema change…
+    expect(loaded.preferences.routineMinutes).toBe(30)
+    // …and the new field arrives with its defaults.
+    expect(loaded.preferences.audio.narration).toEqual({
+      enabled: true,
+      voiceURI: null,
+      rate: 0.9,
+    })
+    expect(localStorage.getItem(BACKUP_KEY)).not.toBeNull()
   })
 })

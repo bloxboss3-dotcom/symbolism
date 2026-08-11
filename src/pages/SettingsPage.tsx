@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Segmented, SwitchRow, ConfirmDialog } from '../components/ui'
 import { audioEngine } from '../lib/audio'
+import { loadVoices, narrationEngine, narrationSupported, rankVoices } from '../lib/narration'
 import { notifyCapability, requestNotifyPermission } from '../lib/notifications'
 import { clearState } from '../lib/storage'
 import { DAY_LABELS, localDay } from '../lib/time'
@@ -34,10 +35,24 @@ export function SettingsPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [permission, setPermission] = useState(notifyCapability())
   const [previewing, setPreviewing] = useState(false)
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
 
-  // Leaving Settings mid-preview must not leave ambience playing app-wide.
   useEffect(() => {
-    return () => audioEngine.stop()
+    let cancelled = false
+    void loadVoices().then((available) => {
+      if (!cancelled) setVoices(rankVoices(available))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Leaving Settings mid-preview must not leave sound playing app-wide.
+  useEffect(() => {
+    return () => {
+      audioEngine.stop()
+      narrationEngine.stop()
+    }
   }, [])
 
   const enableSlot = async (slot: 'morning' | 'evening', enabled: boolean) => {
@@ -314,6 +329,124 @@ export function SettingsPage() {
               {previewing ? 'Stop preview' : 'Preview sound'}
             </button>
           </div>
+        </section>
+
+        {/* -------------------------------------------------------- voice ---- */}
+        <section className="card stack" aria-labelledby="voice-head">
+          <h2 id="voice-head" style={{ fontSize: '1.05rem' }}>
+            Voice guidance
+          </h2>
+          {narrationSupported() ? (
+            <>
+              <SwitchRow
+                title="Read sessions aloud"
+                sub="Prayers, Scripture, and prompts are spoken slowly. Silence and your own prayer stay silent."
+                checked={prefs.audio.narration.enabled}
+                onChange={(enabled) =>
+                  dispatch({
+                    type: 'audio',
+                    patch: { narration: { ...prefs.audio.narration, enabled } },
+                  })
+                }
+              />
+              <label className="field">
+                <span className="field-label">Voice</span>
+                <select
+                  value={prefs.audio.narration.voiceURI ?? ''}
+                  onChange={(event) =>
+                    dispatch({
+                      type: 'audio',
+                      patch: {
+                        narration: {
+                          ...prefs.audio.narration,
+                          voiceURI: event.target.value === '' ? null : event.target.value,
+                        },
+                      },
+                    })
+                  }
+                >
+                  <option value="">Device default</option>
+                  {voices.map((voice) => (
+                    <option key={voice.voiceURI} value={voice.voiceURI}>
+                      {voice.name} ({voice.lang}){voice.localService ? '' : ' — online'}
+                    </option>
+                  ))}
+                </select>
+                <span className="field-hint">
+                  These are your device's own voices — nothing is streamed or recorded. Installing
+                  an enhanced voice in your phone's accessibility or language settings upgrades the
+                  sound here too.
+                </span>
+              </label>
+              <label className="field">
+                <span className="field-label">
+                  Speaking pace — {prefs.audio.narration.rate.toFixed(2)}×
+                </span>
+                <input
+                  type="range"
+                  min={0.6}
+                  max={1.2}
+                  step={0.05}
+                  value={prefs.audio.narration.rate}
+                  onChange={(event) =>
+                    dispatch({
+                      type: 'audio',
+                      patch: {
+                        narration: {
+                          ...prefs.audio.narration,
+                          rate: Number(event.target.value),
+                        },
+                      },
+                    })
+                  }
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">Voice volume</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={prefs.audio.narrationVolume}
+                  onChange={(event) =>
+                    dispatch({
+                      type: 'audio',
+                      patch: { narrationVolume: Number(event.target.value) },
+                    })
+                  }
+                />
+              </label>
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn btn--sm"
+                  onClick={() =>
+                    narrationEngine.speak(
+                      [
+                        {
+                          text: 'Be still, and know that I am God. This is how a session will sound.',
+                          pauseAfterMs: 0,
+                        },
+                      ],
+                      {
+                        voiceURI: prefs.audio.narration.voiceURI,
+                        rate: prefs.audio.narration.rate,
+                        volume: prefs.audio.narrationVolume,
+                      },
+                    )
+                  }
+                >
+                  Hear this voice
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="footnote">
+              This browser does not offer speech synthesis, so voice guidance is unavailable here.
+              It works in current Safari, Chrome, and Edge.
+            </p>
+          )}
         </section>
 
         {/* ---------------------------------------------------- breathing ---- */}

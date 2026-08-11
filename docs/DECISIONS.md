@@ -88,10 +88,20 @@ The guided routine is a pure reducer (`src/features/session/machine.ts`): a type
 
 Ambience (rain, night air, a quiet pad) and the chime are generated in the browser with
 the Web Audio API — no bundled recordings, so there is nothing to license and nothing
-heavy to precache. Each channel (ambience / chime / future narration) has its own gain
-node and persisted volume; audio starts only after a user gesture (autoplay policy) and
-cross-fades between segments. A `NarrationProvider` interface exists but has no MVP
-implementation; narration would ship as properly licensed local assets later.
+heavy to precache. Each channel (ambience / chime / narration) has its own persisted
+volume; audio starts only after a user gesture (autoplay policy) and cross-fades
+between segments.
+
+**Voice guidance** uses the Web Speech API — the device's own speech engine — rather
+than bundled recordings or a cloud TTS service. The reasons are the same ones that
+shape everything else here: it is local and private (no audio or text leaves the
+device), free, offline-capable, and requires no keys or servers. The voice reads the
+arrival words, prayers, Scripture, review prompts, and stretch instructions slowly
+with real pauses (`src/lib/narration.ts` + `src/features/session/narrationScript.ts`);
+it says nothing during silence and goes quiet after introducing the user's own prayer
+time. Voice quality follows the platform (installing an enhanced OS voice upgrades the
+app automatically); professionally recorded or generated audio packs remain the
+roadmap upgrade and would layer onto the same settings.
 
 ## 7. Reminders: honest about platform limits
 

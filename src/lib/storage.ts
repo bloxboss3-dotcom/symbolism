@@ -31,7 +31,7 @@ import {
 } from '../schemas'
 import type { z } from 'zod'
 
-export const STORAGE_VERSION = 1
+export const STORAGE_VERSION = 2
 export const STORAGE_KEY = 'stillbeforehim:state'
 /** Written before every migration so a failed upgrade is recoverable. */
 export const BACKUP_KEY = 'stillbeforehim:state:pre-migration'
@@ -63,6 +63,11 @@ export function defaultPreferences(): UserPreferences {
       chimeEnabled: true,
       chimeVolume: 0.6,
       narrationVolume: 0.8,
+      narration: {
+        enabled: true,
+        voiceURI: null,
+        rate: 0.9,
+      },
     },
     breathing: {
       style: 'guided',
@@ -108,12 +113,18 @@ export function createInitialState(now = new Date()): AppState {
 
 type AnyState = Record<string, unknown>
 
-/**
- * Ordered upgrades: entry `n` takes a version-n state to version n+1. Empty
- * today (version 1); the machinery exists so the first schema change is a
- * five-line diff instead of a data-loss incident.
- */
-const MIGRATIONS: Record<number, (state: AnyState) => AnyState> = {}
+/** Ordered upgrades: entry `n` takes a version-n state to version n+1. */
+const MIGRATIONS: Record<number, (state: AnyState) => AnyState> = {
+  // v1 → v2: voice guidance arrived; older preferences gain its defaults so
+  // the stricter schema does not reset everything the user has chosen.
+  1: (state) => {
+    const prefs = state.preferences as { audio?: Record<string, unknown> } | undefined
+    if (prefs?.audio && typeof prefs.audio === 'object' && !('narration' in prefs.audio)) {
+      prefs.audio.narration = { enabled: true, voiceURI: null, rate: 0.9 }
+    }
+    return { ...state, version: 2 }
+  },
+}
 
 export function migrate(input: AnyState): AppState {
   let state = { ...input }
