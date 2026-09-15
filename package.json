@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "react-dom": "^19.3.0",
     "react-router-dom": "^7.9.3",
     "zod": "^4.1.12"
   },
@@ -35,7 +35,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.0.4",
     "eslint": "^9.37.0",
     "eslint-plugin-react-hooks": "^6.1.1",
